@@ -298,15 +298,10 @@ CREATE TABLE SEGURO.BENEFICIARIO(
     apellido_pat       varchar(50)      NOT NULL,
     apellido_mat       varchar(50)      NULL,
     nombre             varchar(100)     NOT NULL,
-    porcentaje         numeric(3,2)     NOT NULL,
-    clave_seguro       bigint    				NOT NULL,
     parentesco_id      tinyint		     	NOT NULL,
     CONSTRAINT beneficiario_beneficiario_id_pk PRIMARY KEY CLUSTERED (beneficiario_id),
-    CONSTRAINT beneficiario_clave_seguro_fk FOREIGN KEY (clave_seguro)
-    	REFERENCES SEGURO.SEGURO_VIDA(clave_seguro),
     CONSTRAINT beneficiario_parentesco_id_fk FOREIGN KEY (parentesco_id)
-    	REFERENCES CATALOGO.PARENTESCO(parentesco_id),
-    CONSTRAINT beneficiario_porcentaje_chk CHECK (porcentaje > 0 AND porcentaje <= 1)
+    	REFERENCES CATALOGO.PARENTESCO(parentesco_id)
 )
 go
 
@@ -415,6 +410,26 @@ CREATE TABLE VENTAS.POLIZA(
     CONSTRAINT poliza_prima_total_chk CHECK (prima_total > 0)
 )
 go
+
+/*
+ * TABLA BENEFICIARIO_POLIZA
+ */
+
+CREATE TABLE VENTAS.BENEFICIARIO_POLIZA(
+		beneficiario_poliza_id 	bigint 					 IDENTITY(1,1) NOT NULL,
+		porcentaje         			numeric(3,2)     NOT NULL,
+		beneficiario_id					bigint					 NOT NULL,
+		num_poliza							bigint					 NOT NULL,
+		CONSTRAINT beneficiario_poliza_beneficiario_poliza_id_pk 
+			PRIMARY KEY CLUSTERED (beneficiario_poliza_id),
+		CONSTRAINT beneficiario_poliza_beneficiario_id_fk
+			FOREIGN KEY (beneficiario_id) REFERENCES SEGURO.BENEFICIARIO(beneficiario_id),
+		CONSTRAINT beneficiario_poliza_num_poliza_fk
+			FOREIGN KEY (num_poliza) REFERENCES VENTAS.POLIZA(num_poliza),
+		CONSTRAINT beneficiario_poliza_beneficiario_id_num_poliza_uk
+			UNIQUE (beneficiario_id, num_poliza),
+		CONSTRAINT beneficiario_porcentaje_chk CHECK (porcentaje > 0 AND porcentaje <= 1)
+)
 
 /* 
  * TABLA SINIESTRO 
