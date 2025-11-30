@@ -1,18 +1,18 @@
+/*
+ * AUTOR: 
+ * 		ALAN MAURICIO MORALES LÓPEZ
+ * 		LUIS ADRIÁN GONZALEZ FALCÓN
+ * 		YASSER VLADIMIR CRUZ MIRANDA
+ * DESCRIPCION: SCRIPT DDL PARA LA BASE DE DATOS 'EL_BUEN_RETIRO'
+ * FECHA: 26/11/2025
+ */
+
 USE EL_BUEN_RETIRO
 GO
 
-CREATE OR ALTER TRIGGER ESQUEMA.NOMBRETRIGGER
-ON TABLA
-FOR INSERT, UPDATE, DELETE
-AS
-BEGIN
-END
-
-CREATE PROCEDURE ESQUEMA.NOMBRE
-	@numero_1,
-	@numero_2,
-	@numero_3 output,
-AS
+/*
+ * Trigger que valida la edad de contratación
+ */
 
 CREATE OR ALTER TRIGGER VENTAS.tg_edad_contratacion
 ON VENTAS.POLIZA
@@ -46,5 +46,4 @@ BEGIN
 			RAISERROR('Edad del cliente mayor que la edad maxima de contratación', 16, 1) -- Se lanza eror
 			ROLLBACK TRANSACTION -- se deshace la insercion
 		END
-	
 END
