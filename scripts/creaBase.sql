@@ -399,7 +399,7 @@ CREATE TABLE VENTAS.POLIZA(
     fecha_ini           date             NOT NULL,
     fecha_fin           date             NOT NULL,
     prima_total         decimal(10,2)    NOT NULL,
-    num_empleado        bigint			     NOT NULL,
+    num_empleado        bigint			     NULL,
     matricula           varchar(8)       NULL,
     clave_seguro        bigint			     NOT NULL,
     CONSTRAINT poliza_num_poliza_pk PRIMARY KEY CLUSTERED (num_poliza),
