@@ -58,7 +58,7 @@ BEGIN
 END
 
 /*
- * Trigger que valida la edad de contratación
+ * aTrigger que valida la edad de contratación
  */
 
 CREATE OR ALTER TRIGGER VENTAS.tg_edad_contratacion
@@ -105,40 +105,42 @@ BEGIN
 END
 GO
 
--- TRIGGER 5
-CREATE OR ALTER TRIGGER VENTAS.tg_pago_saldo
+/*
+ * Trigger que calcula el saldo pendiente tras insertar o actualizar pago
+ */
+CREATE OR ALTER TRIGGER VENTAS.tg_saldo_pendiente
 ON VENTAS.PAGO
-FOR insert, update
-as
-begin
-	declare 
-		@v_monto_pago as tinyint,		
+AFTER INSERT, UPDATE
+AS
+BEGIN
+	DECLARE 
+		@v_num_poliza as int, 
 		@v_saldo_pendiente as int,
-		@v_saldo_pendiente_actualizado as int,
-		@v_num_poliza as int
+		@v_saldo_total as int,
+		@v_suma_pagos as int
+	
+	SELECT @v_num_poliza = num_poliza from INSERTED; -- obtener el num_poliza del pago de inserted
+	SELECT @v_saldo_total = prima_total from VENTAS.POLIZA WHERE num_poliza = @v_num_poliza; -- obtener el saldo total de poliza 
+	SELECT @v_suma_pagos = sum(monto) from VENTAS.PAGO where num_poliza = @v_num_poliza; -- obtener la suma de los pagos de una poliza
+	SET @v_saldo_pendiente = @v_saldo_total - @v_suma_pagos; -- obtener el saldo pendiente (total - pagado)
 
-	select @v_monto_pago=monto, @v_num_poliza = num_poliza from inserted; --se obtiene el monto e id_pago de un pago
-	select @v_saldo_pendiente = saldo_pend from VENTAS.poliza p where p.num_poliza = @v_num_poliza; -- se obtiene el saldo pendiente para comparar y actualizar
+	if(@v_saldo_pendiente<0) -- entra cuando el saldo pendiente es menor a 0
+	BEGIN
+		RAISERROR('El pago sobrepasa el saldo pendiente de la póliza.', 16,1);
+		ROLLBACK TRANSACTION;
+		RETURN;
+	END
+	-- Si llegó aquí, el saldo pendiente es >=0
+	UPDATE VENTAS.POLIZA
+	set saldo_pend = @v_saldo_pendiente
+	WHERE num_poliza = @v_num_poliza;	
+END
+GO
 
-	--actualizando
-	--checar que el monto depositado no sea mayor al saldo pendiente
-	if(@v_monto_pago <= @v_saldo_pendiente)
-	begin
-		set @v_saldo_pendiente_actualizado = @v_saldo_pendiente - @v_monto_pago --cantidad mayor o igual a 0 por el condicional
-		update VENTAS.poliza
-		set saldo_pend = @v_saldo_pendiente_actualizado
-		where num_poliza = @v_num_poliza;
-	end
-	else
-	begin
-		-- mensaje de que se insertó un monto mayor al pendiente
-		raiserror('Error al intentar insertar un monto mayor al saldo pendiente',10,1);
-		rollback transaction;
-	end
-end
-go
+/*
+ * Trigger que realiza bitácora de estado en ventas.cotizacion
+ */
 
--- 6
 CREATE OR ALTER TRIGGER VENTAS.tg_bitacora_estado
 ON VENTAS.COTIZACION
 FOR UPDATE
@@ -166,13 +168,3 @@ BEGIN
 	end
 END
 GO
-
-
-
-
-
-
--- 6, 7, 8
-
--- 10 y 11
-go
