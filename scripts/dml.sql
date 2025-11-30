@@ -11,6 +11,14 @@ USE [EL_BUEN_RETIRO]
 GO
 
 /*
+ * VISTAS ================================================================
+ */
+
+/*
+ * Triggers ==============================================================
+ */
+
+/*
  * Trigger que asigna el corredor cuando no se especifíca
  */
 
@@ -97,15 +105,17 @@ BEGIN
 		
 		-- Se verifica que la edad no sea mayor
 		IF (@v_edad_cliente > @v_edad_max )
-			BEGIN
-				RAISERROR('Edad del cliente mayor que la edad maxima de contratación', 16, 1) -- Se lanza eror
-				ROLLBACK TRANSACTION -- se deshace la insercion
-			END
+		BEGIN
+			RAISERROR('Edad del cliente mayor que la edad maxima de contratación', 16, 1) -- Se lanza eror
+			ROLLBACK TRANSACTION -- se deshace la insercion
+		END
 	END
 END
 GO
 
--- TRIGGER 5
+/*
+ * Trigger que valida el saldo pendiente de una poliza.
+ */
 CREATE OR ALTER TRIGGER VENTAS.tg_pago_saldo
 ON VENTAS.PAGO
 FOR insert, update
@@ -138,7 +148,9 @@ begin
 end
 go
 
--- 6
+/*
+ * Trigger que registra en la bitacora de estados cuando cambia el estado de una cotización.
+ */
 CREATE OR ALTER TRIGGER VENTAS.tg_bitacora_estado
 ON VENTAS.COTIZACION
 FOR UPDATE
@@ -167,12 +179,73 @@ BEGIN
 END
 GO
 
+/*
+ * Trigger que valida a los beneficiarios de un seguro de vida
+ */
+CREATE OR ALTER TRIGGER VENTAS.tg_beneficiarios
+ON VENTAS.BENEFICIARIO_POLIZA
+FOR INSERT, UPDATE
+AS
+BEGIN
+	DECLARE @v_cantidad_beneficiarios tinyint,
+					@v_num_poliza bigint,
+					@v_porcentaje_total NUMERIC(3,2)
+	
+	-- Se verifica que el seguro con el que se relaciona sea de tipo 'V'
+	IF (EXISTS (SELECT s.clave_seguro
+							FROM INSERTED i
+							INNER JOIN VENTAS.POLIZA p
+							ON p.num_poliza = i.num_poliza
+							INNER JOIN SEGURO.SEGURO s
+							ON p.clave_seguro = s.clave_seguro
+							WHERE	s.tipo_seguro = 'V'))
+	BEGIN
+		
+		-- Encontrando el numero de poliza con el que se quiere asociar al beneficiario
+		SELECT @v_num_poliza = num_poliza FROM INSERTED
+		
+		-- Calculando la cantidad de beneficiarios actual y el porcentaje total
+		SELECT @v_cantidad_beneficiarios = COALESCE(count(*),0), @v_porcentaje_total = COALESCE(sum(porcentaje),0)
+		FROM VENTAS.BENEFICIARIO_POLIZA bp
+		WHERE bp.num_poliza = @v_num_poliza
+		
+		IF (@v_cantidad_beneficiarios = 5)
+		BEGIN
+			raiserror('Error, no se pueden asociar más de 5 benefiarios al seguro.',10,1);
+			rollback transaction;
+		END
+		
+    IF EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) -- Cuando es INSERT
+    BEGIN
+    	IF (@v_porcentaje_total + (SELECT porcentaje FROM INSERTED) > 1) -- Si la suma de los porcentaje mas el nuevo, es > 1
+			BEGIN
+				raiserror('Error, no se pueden asociar más de 5 benefiarios al seguro.',10,1);
+				rollback transaction;
+			END
+    END
+    ELSE IF EXISTS (SELECT 1 FROM inserted) AND EXISTS (SELECT 1 FROM deleted) -- Cuando es UPDATE
+    BEGIN
+    	IF (@v_porcentaje_total + (SELECT porcentaje FROM INSERTED) - (SELECT porcentaje FROM DELETED) > 1)  -- Si la suma de los porcentajes reemplazando el nuevo, es > 1
+			BEGIN
+				raiserror('Error, el porcentaje dado a los beneficiarios rebasa el 100%.',10,1);
+				rollback transaction;
+			END
+    END
+	END
+	ELSE
+	BEGIN
+		raiserror('Error, no se pueden asociar benefiarios a un seguro que no es de vida.',10,1);
+		rollback transaction;		
+	END	
+END
+GO
 
 
 
 
 
--- 6, 7, 8
 
--- 10 y 11
-go
+
+
+
+
