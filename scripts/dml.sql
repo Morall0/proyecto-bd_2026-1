@@ -15,13 +15,43 @@ GO
  */
 
 /*
+ * Vista para obtener los datos del CLIENTE
+ */
+CREATE OR ALTER VIEW CLIENTE.vis_cliente
+AS
+SELECT c.cliente_id, c.nombre, c.apellido_pat, c.apellido_mat, c.tipo_cliente,
+	(CASE
+		WHEN c.tipo_cliente = 'N' THEN c.curp
+		WHEN c.tipo_cliente = 'M' THEN c.rfc
+		END) AS 'identificador_fiscal', 
+	DATEDIFF(YEAR, c.fecha_nacimiento, GETDATE()) - 
+	(CASE
+		WHEN (MONTH(c.fecha_nacimiento) > MONTH(GETDATE())) OR
+				 (MONTH(c.fecha_nacimiento) = MONTH(GETDATE()) AND DAY(c.fecha_nacimiento) > DAY(GETDATE()))
+		THEN 1
+		ELSE 0
+		END) AS 'edad', c.fecha_nacimiento,
+		d.calle, d.num_ext, ISNULL(CAST(d.num_int AS VARCHAR(20)), 'Sin numero int') AS 'num_int',
+		col.nombre_colonia, col.codigo_postal, m.nombre_municipio, e.nombre_estado
+FROM CLIENTE c
+INNER JOIN CLIENTE.DIRECCION d
+ON c.direccion_id = d.direccion_id
+INNER JOIN CATALOGO.COLONIA col
+ON d.colonia_id = col.colonia_id
+INNER JOIN CATALOGO.MUNICIPIO m
+ON col.municipio_id = m.municipio_id
+INNER JOIN CATALOGO.ESTADO e
+ON m.estado_id = e.estado_id;
+
+--SELECT * FROM CLIENTE.vis_cliente
+
+/*
  * Triggers ==============================================================
  */
 
 /*
  * Trigger que asigna el corredor cuando no se especifíca
  */
-
 CREATE OR ALTER TRIGGER VENTAS.tg_asigna_corredor_zona
 ON VENTAS.POLIZA
 INSTEAD OF INSERT
@@ -51,18 +81,34 @@ BEGIN
 		
 		-- Se realiza la inserción
 		INSERT INTO VENTAS.POLIZA (num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, 
-												prima_total, num_empleado, matricula, clave_seguro) 
-		VALUES 
+												prima_total, num_empleado, matricula, clave_seguro)
 		SELECT num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, prima_total, @v_num_empleado, matricula, clave_seguro 
 		FROM INSERTED
 		
 	END
 	ELSE -- Si no viene null, hace el insert con los datos ya hechos
 	BEGIN
-		INSERT INTO VENTAS.POLIZA VALUES
-		SELECT * FROM INSERTED
+		INSERT INTO VENTAS.POLIZA(
+	    saldo_pend,
+	    cliente_id,
+	    fecha_ini,
+	    fecha_fin,
+	    prima_total,
+	    num_empleado,
+	    matricula,
+	    clave_seguro
+		)
+		SELECT 
+	    saldo_pend,
+	    cliente_id,
+	    fecha_ini,
+	    fecha_fin,
+	    prima_total,
+	    num_empleado,
+	    matricula,
+	    clave_seguro
+		FROM INSERTED;
 	END
-	
 END
 
 /*
