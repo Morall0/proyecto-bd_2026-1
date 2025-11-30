@@ -137,3 +137,42 @@ begin
 	end
 end
 go
+
+-- 6
+CREATE OR ALTER TRIGGER VENTAS.tg_bitacora_estado
+ON VENTAS.COTIZACION
+FOR UPDATE
+AS
+BEGIN
+	DECLARE 
+		@v_clave_estado_antiguo as varchar(1),
+		@v_clave_estado_actualizado as varchar(1),
+		@v_cotizacion_id as numeric(18,0)
+	
+	select @v_clave_estado_antiguo = clave_estado from deleted; -- estado antiguo
+	select @v_clave_estado_actualizado = clave_estado from inserted; -- estado nuevo
+	select @v_cotizacion_id = cotizacion_id from inserted; -- cotizacion id
+
+	--verificar que el estado haya cambiado
+	if(@v_clave_estado_actualizado != @v_clave_estado_antiguo)
+	begin
+		--insertar registro en tabla de bitacora.
+		insert into VENTAS.BITACORA_COTIZACION (fecha_cambio, cotizacion_id, clave_estado)
+			values (
+				GETDATE(),
+				@v_cotizacion_id,
+				@v_clave_estado_actualizado
+			);
+	end
+END
+GO
+
+
+
+
+
+
+-- 6, 7, 8
+
+-- 10 y 11
+go
