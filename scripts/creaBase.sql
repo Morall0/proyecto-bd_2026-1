@@ -49,7 +49,7 @@ go
 
 CREATE TABLE CATALOGO.MUNICIPIO(
     municipio_id        smallint    		IDENTITY(1,1) NOT NULL,
-    nombre_municipio    varchar(40)     NOT NULL,
+    nombre_municipio    varchar(100)     NOT NULL,
     estado_id        		tinyint    			NOT NULL,
     CONSTRAINT municipio_municipio_id_pk PRIMARY KEY (municipio_id),
     CONSTRAINT municipio_estado_id_fk FOREIGN KEY (estado_id) 
@@ -63,7 +63,7 @@ go
 
 CREATE TABLE CATALOGO.COLONIA(
     colonia_id          int    					IDENTITY(1,1) NOT NULL,
-    nombre_colonia    	varchar(40)     NOT NULL,
+    nombre_colonia    	varchar(100)     NOT NULL,
     codigo_postal       varchar(5)      NOT NULL,
     municipio_id        smallint		    NOT NULL,
     CONSTRAINT colonia_colonia_id_pk PRIMARY KEY CLUSTERED (colonia_id),
@@ -71,7 +71,7 @@ CREATE TABLE CATALOGO.COLONIA(
     	REFERENCES CATALOGO.MUNICIPIO(municipio_id),
     CONSTRAINT colonia_codigo_postal_chk CHECK (LEN(codigo_postal)=5)
 )
-go
+GO
 
 /* 
  * TABLA DIRECCION 
@@ -111,8 +111,8 @@ CREATE TABLE CLIENTE.CLIENTE(
     CONSTRAINT cliente_rfc_chk CHECK (LEN(rfc)=13),
     CONSTRAINT cliente_curp_chk CHECK (LEN(curp)=18),
     CONSTRAINT cliente_rfc_curp_chk CHECK ( -- AGREGAR LA CS1 EN TRIGGER
-    	(curp IS NOT NULL AND rfc IS NULL) OR
-    	(curp IS NULL AND rfc IS NOT NULL)
+    	(tipo_cliente = 'N' AND curp IS NOT NULL AND rfc IS NULL) OR
+    	(tipo_cliente = 'M' AND curp IS NULL AND rfc IS NOT NULL)
     )
 )
 go
@@ -209,11 +209,27 @@ CREATE TABLE SEGURO.SEGURO(
     nombre                 varchar(50)      NOT NULL,
     vigencia_min           numeric(3,0)     NOT NULL,
     monto_asegurado_min    numeric(10,2)    NOT NULL,
-    cotizacion_id          bigint				    NOT NULL,
     CONSTRAINT seguro_clave_seguro_pk PRIMARY KEY CLUSTERED (clave_seguro),
-    CONSTRAINT seguro_tipo_seguro_chk CHECK (tipo_seguro IN ('A', 'R', 'V')),
-    CONSTRAINT seguro_cotizacion_id_fk FOREIGN KEY (cotizacion_id)
-    	REFERENCES VENTAS.COTIZACION(cotizacion_id)
+    CONSTRAINT seguro_tipo_seguro_chk CHECK (tipo_seguro IN ('A', 'R', 'V'))
+)
+GO
+
+/* 
+ * TABLA COTIZACION_SEGURO 
+ */
+
+CREATE TABLE VENTAS.COTIZACION_SEGURO(
+		cotizacion_seguro_id		bigint			IDENTITY(1,1) NOT NULL,    
+		clave_seguro           	bigint			NOT NULL,
+    cotizacion_id          	bigint	    NOT NULL,
+    CONSTRAINT cotizacion_seguro_cotizacion_seguro_id_pk 
+    	PRIMARY KEY CLUSTERED (cotizacion_seguro_id),
+    CONSTRAINT cotizacion_seguro_cotizacion_id_fk FOREIGN KEY (cotizacion_id)
+    	REFERENCES VENTAS.COTIZACION(cotizacion_id),
+    CONSTRAINT cotizacion_seguro_clave_seguro_fk FOREIGN KEY (clave_seguro)
+    	REFERENCES SEGURO.SEGURO(clave_seguro),
+    CONSTRAINT cotizacion_seguro_clave_seguro_cotizacion_id_uk 
+    	UNIQUE (clave_seguro, cotizacion_id)
 )
 go
 
@@ -311,7 +327,6 @@ go
 CREATE TABLE TRABAJADOR.CORREDOR(
 		num_empleado          bigint			     NOT NULL,
     cedula                numeric(8,0)     NOT NULL,
-    codigo_postal         varchar(5)       NOT NULL,
     comision					    numeric(2,2)     NOT NULL,
     fecha_contratacion    date             NOT NULL,
     num_supervisor        bigint			     NULL,
@@ -321,8 +336,23 @@ CREATE TABLE TRABAJADOR.CORREDOR(
     CONSTRAINT corredor_cedula_uk UNIQUE (cedula),
     CONSTRAINT corredor_num_supervisor_fk FOREIGN KEY (num_supervisor)
     	REFERENCES TRABAJADOR.EMPLEADO(num_empleado),
-    CONSTRAINT corredor_codigo_postal_chk CHECK (LEN(codigo_postal) = 5),
     CONSTRAINT corredor_comision_chk CHECK (comision > 0 AND comision < 1)
+)
+GO
+
+/* 
+ * TABLA CODIGO_POSTAL_CORREDOR 
+ */
+
+CREATE TABLE TRABAJADOR.CODIGO_POSTAL_CORREDOR(
+		codigo_postal_corredor_id 		bigint 			IDENTITY(1,1) NOT NULL,
+		num_empleado          				bigint   		NOT NULL,
+    codigo_postal         				varchar(5)	NOT NULL,
+    CONSTRAINT codigo_postal_corredor_codigo_postal_corredor_id_pk
+    	PRIMARY KEY CLUSTERED (codigo_postal_corredor_id),
+    CONSTRAINT codigo_postal_corredor_num_empleado_fk 
+    	FOREIGN KEY (num_empleado) REFERENCES TRABAJADOR.CORREDOR(num_empleado),
+    CONSTRAINT corredor_codigo_postal_chk CHECK (LEN(codigo_postal) = 5)
 )
 go
 
