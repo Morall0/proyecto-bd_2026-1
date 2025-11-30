@@ -153,7 +153,10 @@ CREATE TABLE CATALOGO.ESTADO_COTIZACION(
 		clave_estado 	varchar(1) 		NOT NULL,
 	 	estado 				varchar(10) 	NOT NULL,
 	 	CONSTRAINT estado_cotizacion_clave_estado_pk
-	 		PRIMARY KEY (clave_estado)
+	 		PRIMARY KEY (clave_estado),
+		CONSTRAINT estado_cotizacion_clave_estado_chk CHECK (
+			clave_estado IN ('P', 'A', 'R')
+			)	
 )
 go
 
