@@ -7,13 +7,10 @@
  * FECHA: 26/11/2025
  */
 
-USE EL_BUEN_RETIRO
+USE [EL_BUEN_RETIRO]
 GO
 
-/*
- * Trigger que valida la edad de contratación
- */
-
+-- TRIGGER 3
 CREATE OR ALTER TRIGGER VENTAS.tg_edad_contratacion
 ON VENTAS.POLIZA
 FOR INSERT
@@ -47,3 +44,38 @@ BEGIN
 			ROLLBACK TRANSACTION -- se deshace la insercion
 		END
 END
+GO
+
+
+-- TRIGGER 5
+CREATE OR ALTER TRIGGER VENTAS.tg_pago_saldo
+ON VENTAS.PAGO
+FOR insert, update
+as
+begin
+	declare 
+		@v_monto_pago as tinyint,		
+		@v_saldo_pendiente as int,
+		@v_saldo_pendiente_actualizado as int,
+		@v_num_poliza as int
+
+	select @v_monto_pago=monto, @v_num_poliza = num_poliza from inserted; --se obtiene el monto e id_pago de un pago
+	select @v_saldo_pendiente = saldo_pend from VENTAS.poliza p where p.num_poliza = @v_num_poliza; -- se obtiene el saldo pendiente para comparar y actualizar
+
+	--actualizando
+	--checar que el monto depositado no sea mayor al saldo pendiente
+	if(@v_monto_pago <= @v_saldo_pendiente)
+	begin
+		set @v_saldo_pendiente_actualizado = @v_saldo_pendiente - @v_monto_pago --cantidad mayor o igual a 0 por el condicional
+		update VENTAS.poliza
+		set saldo_pend = @v_saldo_pendiente_actualizado
+		where num_poliza = @v_num_poliza;
+	end
+	else
+	begin
+		-- mensaje de que se insertó un monto mayor al pendiente
+		raiserror('Error al intentar insertar un monto mayor al saldo pendiente',10,1);
+		rollback transaction;
+	end
+end
+go
