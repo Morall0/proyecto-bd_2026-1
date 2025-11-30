@@ -394,7 +394,7 @@ go
 
 CREATE TABLE VENTAS.POLIZA(
     num_poliza          bigint    			 IDENTITY(1,1) NOT NULL,
-    saldo_pend          decimal(15,2)    NOT NULL, -- CALCULAR CON TRIGGER
+    saldo_pend          decimal(15,2)    NULL, -- CALCULAR CON TRIGGER
     cliente_id          bigint			     NOT NULL,
     fecha_ini           date             NOT NULL,
     fecha_fin           date             NOT NULL,
