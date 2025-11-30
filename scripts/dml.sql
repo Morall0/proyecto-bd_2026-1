@@ -42,8 +42,42 @@ INNER JOIN CATALOGO.MUNICIPIO m
 ON col.municipio_id = m.municipio_id
 INNER JOIN CATALOGO.ESTADO e
 ON m.estado_id = e.estado_id;
+GO
 
 --SELECT * FROM CLIENTE.vis_cliente
+
+/*
+ * Vista para obtener los datos del siniestro
+ */
+CREATE OR ALTER VIEW SEGURO.vis_siniestro
+AS
+SELECT s.num_siniestro, s.lugar, s.causa, s.fecha_hora, 
+			 (DATEDIFF(DAY, s.fecha_hora, GETDATE())) AS dias_transcurridos,
+			 s.monto_indemnizacion, s.num_poliza,
+			 e.nombre+' '+e.apellido_pat+' '+ISNULL(e.apellido_mat, '') AS nombre_ajustador
+FROM SEGURO.SINIESTRO s
+INNER JOIN TRABAJADOR.EMPLEADO e
+ON s.num_empleado = e.num_empleado;
+GO
+
+--SELECT * FROM SEGURO.vis_siniestro
+
+/*
+ * Vista para obtener los beneficiarios y la poliza que los aseguras
+ */
+CREATE OR ALTER VIEW VENTAS.vis_beneficiarios
+AS
+SELECT b.beneficiario_id, par.parentesco,
+			 b.nombre+' '+b.apellido_pat+' '+ISNULL(b.apellido_mat, '') AS nombre_beneficiario,
+			 bp.num_poliza, bp.porcentaje
+FROM SEGURO.BENEFICIARIO b
+INNER JOIN CATALOGO.PARENTESCO par
+ON b.parentesco_id=par.parentesco_id
+INNER JOIN VENTAS.BENEFICIARIO_POLIZA bp
+ON b.beneficiario_id = bp.beneficiario_id;
+GO
+
+-- SELECT * FROM VENTAS.vis_beneficiarios ORDER BY num_poliza
 
 /*
  * Triggers ==============================================================
