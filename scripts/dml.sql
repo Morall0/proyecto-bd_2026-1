@@ -240,14 +240,18 @@ BEGIN
 		@v_clave_estado_antiguo as varchar(1),
 		@v_clave_estado_actualizado as varchar(1),
 		@v_cotizacion_id as numeric(18,0)
-	
+	print('Entro a trigger bitacora');
 	select @v_clave_estado_antiguo = clave_estado from deleted; -- estado antiguo
 	select @v_clave_estado_actualizado = clave_estado from inserted; -- estado nuevo
 	select @v_cotizacion_id = cotizacion_id from inserted; -- cotizacion id
+	
+	print(@v_clave_estado_actualizado);
+	print(@v_clave_estado_antiguo);
 
 	--verificar que el estado haya cambiado
 	if(@v_clave_estado_actualizado != @v_clave_estado_antiguo)
 	begin
+		print('Entro al trigger');
 		--insertar registro en tabla de bitacora.
 		insert into VENTAS.BITACORA_COTIZACION (fecha_cambio, cotizacion_id, clave_estado)
 			values (
