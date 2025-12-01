@@ -207,11 +207,13 @@ BEGIN
 		@v_saldo_total as int,
 		@v_suma_pagos as int
 	
+	print('Entra a trigger');
 	SELECT @v_num_poliza = num_poliza from INSERTED; -- obtener el num_poliza del pago de inserted
 	SELECT @v_saldo_total = prima_total from VENTAS.POLIZA WHERE num_poliza = @v_num_poliza; -- obtener el saldo total de poliza 
 	SELECT @v_suma_pagos = sum(monto) from VENTAS.PAGO where num_poliza = @v_num_poliza; -- obtener la suma de los pagos de una poliza
 	SET @v_saldo_pendiente = @v_saldo_total - @v_suma_pagos; -- obtener el saldo pendiente (total - pagado)
-
+	
+	print(@v_saldo_pendiente);
 	if(@v_saldo_pendiente<0) -- entra cuando el saldo pendiente es menor a 0
 	BEGIN
 		RAISERROR('El pago sobrepasa el saldo pendiente de la póliza.', 16,1);
@@ -219,6 +221,7 @@ BEGIN
 		RETURN;
 	END
 	-- Si llegó aquí, el saldo pendiente es >=0
+	print('trigger llega a update');
 	UPDATE VENTAS.POLIZA
 	set saldo_pend = @v_saldo_pendiente
 	WHERE num_poliza = @v_num_poliza;	
