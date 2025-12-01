@@ -77,3 +77,16 @@ BEGIN TRANSACTION
 ROLLBACK;
 -- select * from VENTAS.PAGO
 
+
+/*VERIFICANDO TRIGGER QUE REVISA EL REGISTRO EN BITACORA*/
+BEGIN TRANSACTION;
+	-- se selecciona a la cotizacion_id = 2
+	-- estado antiguo: P
+	-- estado actual: A
+	select * from VENTAS.BITACORA_COTIZACION
+	UPDATE VENTAS.COTIZACION SET clave_estado = 'A'	WHERE cotizacion_id = 2;
+	
+	-- Verificar que se haya hecho la bitacora
+	SELECT * FROM VENTAS.BITACORA_COTIZACION;
+	
+ROLLBACK TRANSACTION;
