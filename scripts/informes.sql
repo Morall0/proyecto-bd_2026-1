@@ -1,6 +1,9 @@
 /* 
    informes.sql
-   AUTOR: Cruz Miranda Yasser Vladimir
+   AUTOR:
+      ALAN MAURICIO MORALES LÓPEZ
+      LUIS ADRIÁN GONZALEZ FALCÓN
+      YASSER VLADIMIR CRUZ MIRANDA
    FECHA: 28/11/2025
    DESCRIPCION: Consultas DQL de Estadisticas e Informes (Desencapsuladas)
  */
@@ -223,3 +226,4 @@ INNER JOIN VENTAS.POLIZA P ON V.matricula = P.matricula
 GROUP BY V.marca, V.modelo
 ORDER BY TotalVehiculosAsegurados DESC;
 GO
+
