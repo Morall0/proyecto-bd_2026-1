@@ -98,6 +98,7 @@ BEGIN
 			FROM INSERTED i)
 			IS NULL) -- Si no se mandó un num_empleado
 	BEGIN 
+		PRINT 'No se asignó corredor'
 		-- Se busca el codigo postal del cliente
 		SELECT @v_codigo_postal_cliente = col.codigo_postal
 		FROM INSERTED i
@@ -107,23 +108,37 @@ BEGIN
 		ON c.direccion_id = d.direccion_id
 		INNER JOIN CATALOGO.COLONIA col
 		ON col.colonia_id = d.colonia_id
+
+		PRINT 'EL CP del cliente es '+@v_codigo_postal_cliente
 		
 		-- Se busca el num_empleado que tiene asignado ese codigo postal
 		SELECT @v_num_empleado = cpc.num_empleado
 		FROM TRABAJADOR.CODIGO_POSTAL_CORREDOR cpc
 		WHERE codigo_postal = @v_codigo_postal_cliente
 		
-		-- Se realiza la inserción
-		INSERT INTO VENTAS.POLIZA (num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, 
-												prima_total, num_empleado, matricula, clave_seguro)
-		SELECT num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, prima_total, @v_num_empleado, matricula, clave_seguro 
-		FROM INSERTED
+		PRINT 'Se econtró al empleado '+CAST(@v_num_empleado AS VARCHAR(18))
+		
+		IF (@v_num_empleado IS NOT NULL)
+		BEGIN
+			PRINT 'Se asignará el corredor '+CAST(@v_num_empleado AS VARCHAR(18))+', pues tiene el mismo cp que el cliente'
+		
+			-- Se realiza la inserción
+			INSERT INTO VENTAS.POLIZA (cliente_id, fecha_ini, fecha_fin, 
+													prima_total, num_empleado, matricula, clave_seguro)
+			SELECT cliente_id, fecha_ini, fecha_fin, prima_total, @v_num_empleado, matricula, clave_seguro 
+			FROM INSERTED
+		END
+		ELSE
+		BEGIN
+			RAISERROR('No se encontró un corredor con el mismo cp del cliente', 16, 1) -- Se lanza eror
+			ROLLBACK TRANSACTION -- se deshace la insercion
+		END
 		
 	END
 	ELSE -- Si no viene null, hace el insert con los datos ya hechos
 	BEGIN
+		PRINT 'Si se asignó corredor'
 		INSERT INTO VENTAS.POLIZA(
-	    saldo_pend,
 	    cliente_id,
 	    fecha_ini,
 	    fecha_fin,
@@ -132,8 +147,7 @@ BEGIN
 	    matricula,
 	    clave_seguro
 		)
-		SELECT 
-	    saldo_pend,
+		SELECT
 	    cliente_id,
 	    fecha_ini,
 	    fecha_fin,
@@ -148,7 +162,6 @@ END
 /*
  * Trigger que valida la edad de contratación
  */
-
 CREATE OR ALTER TRIGGER VENTAS.tg_edad_contratacion
 ON VENTAS.POLIZA
 FOR INSERT
