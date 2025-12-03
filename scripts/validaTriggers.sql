@@ -1,3 +1,4 @@
+
 /*
  * AUTOR: 
  * 		ALAN MAURICIO MORALES LÓPEZ
@@ -7,8 +8,7 @@
  * FECHA: 26/11/2025
  */
 
-
- /*
+/*
  * Validacion del trigger tg_asigna_corredor_zona
  */
 -- ALBERTO RUIS SOLIS (ID 1)
@@ -18,7 +18,6 @@ INSERT INTO VENTAS.POLIZA(cliente_id, fecha_ini, fecha_fin, prima_total, matricu
 VALUES (1, '2025-11-30', '2026-11-30', 25000, 'ABC-101', 4);
 SELECT TOP 1 * FROM VENTAS.POLIZA WHERE cliente_id = 1 ORDER BY fecha_fin
 ROLLBACK TRAN
-
 
 /*VERIFICANDO TRIGGER QUE VALIDA EDAD DE CONTRATACION*/
 -- Creando un seguro de vida con edad maxima de 35 años 

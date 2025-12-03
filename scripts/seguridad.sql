@@ -1,6 +1,9 @@
 /* 
    seguridad.sql
-   Autor: Yasser Vladimir Cruz Miranda
+   AUTOR:
+      ALAN MAURICIO MORALES LÓPEZ
+      LUIS ADRIÁN GONZALEZ FALCÓN
+      YASSER VLADIMIR CRUZ MIRANDA
    Fecha: 29/11/2025
    Descripción: Script de seguridad para la BD Aseguradora
 */
@@ -47,4 +50,5 @@ GRANT SELECT ON dbo.Pago TO rol_gerente;
 DENY DELETE ON dbo.Cliente TO rol_cotizador;
 DENY DELETE ON dbo.Poliza TO rol_cotizador;
 DENY DELETE ON dbo.Cotizacion TO rol_cotizador;
+
 

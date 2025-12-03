@@ -98,6 +98,7 @@ BEGIN
 			FROM INSERTED i)
 			IS NULL) -- Si no se mandó un num_empleado
 	BEGIN 
+		PRINT 'No se asignó corredor'
 		-- Se busca el codigo postal del cliente
 		SELECT @v_codigo_postal_cliente = col.codigo_postal
 		FROM INSERTED i
@@ -107,23 +108,37 @@ BEGIN
 		ON c.direccion_id = d.direccion_id
 		INNER JOIN CATALOGO.COLONIA col
 		ON col.colonia_id = d.colonia_id
+
+		PRINT 'EL CP del cliente es '+@v_codigo_postal_cliente
 		
 		-- Se busca el num_empleado que tiene asignado ese codigo postal
 		SELECT @v_num_empleado = cpc.num_empleado
 		FROM TRABAJADOR.CODIGO_POSTAL_CORREDOR cpc
 		WHERE codigo_postal = @v_codigo_postal_cliente
 		
-		-- Se realiza la inserción
-		INSERT INTO VENTAS.POLIZA (num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, 
-												prima_total, num_empleado, matricula, clave_seguro)
-		SELECT num_poliza, saldo_pend, cliente_id, fecha_ini, fecha_fin, prima_total, @v_num_empleado, matricula, clave_seguro 
-		FROM INSERTED
+		PRINT 'Se econtró al empleado '+CAST(@v_num_empleado AS VARCHAR(18))
+		
+		IF (@v_num_empleado IS NOT NULL)
+		BEGIN
+			PRINT 'Se asignará el corredor '+CAST(@v_num_empleado AS VARCHAR(18))+', pues tiene el mismo cp que el cliente'
+		
+			-- Se realiza la inserción
+			INSERT INTO VENTAS.POLIZA (cliente_id, fecha_ini, fecha_fin, 
+													prima_total, num_empleado, matricula, clave_seguro)
+			SELECT cliente_id, fecha_ini, fecha_fin, prima_total, @v_num_empleado, matricula, clave_seguro 
+			FROM INSERTED
+		END
+		ELSE
+		BEGIN
+			RAISERROR('No se encontró un corredor con el mismo cp del cliente', 16, 1) -- Se lanza eror
+			ROLLBACK TRANSACTION -- se deshace la insercion
+		END
 		
 	END
 	ELSE -- Si no viene null, hace el insert con los datos ya hechos
 	BEGIN
+		PRINT 'Si se asignó corredor'
 		INSERT INTO VENTAS.POLIZA(
-	    saldo_pend,
 	    cliente_id,
 	    fecha_ini,
 	    fecha_fin,
@@ -132,8 +147,7 @@ BEGIN
 	    matricula,
 	    clave_seguro
 		)
-		SELECT 
-	    saldo_pend,
+		SELECT
 	    cliente_id,
 	    fecha_ini,
 	    fecha_fin,
@@ -148,7 +162,6 @@ END
 /*
  * Trigger que valida la edad de contratación
  */
-
 CREATE OR ALTER TRIGGER VENTAS.tg_edad_contratacion
 ON VENTAS.POLIZA
 FOR INSERT
@@ -323,3 +336,242 @@ BEGIN
 	END	
 END
 GO
+
+--PROCEDIMIENTOS ALMACENADOS
+
+--REGISTRAR UNA COTIZACION
+CREATE OR ALTER PROCEDURE pa_RegistrarCotizacion
+    @num_cotizacion NUMERIC(3,0),
+    @cliente_id BIGINT,
+    @prima_estimada NUMERIC(10,2),
+    @clave_seguro BIGINT 
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @NuevaCotizacionID BIGINT;
+
+        --insertamos encabezado
+        INSERT INTO VENTAS.COTIZACION (
+            num_cotizacion, cliente_id, fecha_cotizacion, 
+            fecha_vencimiento_oferta, clave_estado, prima_estimada
+        )
+        VALUES (
+            @num_cotizacion,
+            @cliente_id,
+            GETDATE(),
+            DATEADD(DAY, 15, GETDATE()), -- vigencia de 15 dias por defecto
+            'P', -- estado de la cotizacion
+            @prima_estimada
+        );
+
+        -- recuperamos el id
+        SET @NuevaCotizacionID = SCOPE_IDENTITY();
+
+        --insertando detalles
+        INSERT INTO VENTAS.COTIZACION_SEGURO (cotizacion_id, clave_seguro)
+        VALUES (@NuevaCotizacionID, @clave_seguro);
+
+        COMMIT TRANSACTION;
+        PRINT 'Cotizacion registrada exitosamente, id generado: ' + CAST(@NuevaCotizacionID AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+	--si hay error
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        PRINT 'Error al registrar cotizacion: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+--REGISTRAR UN SEGURO DE VIDA
+CREATE OR ALTER PROCEDURE pa_RegistrarSeguroVida
+    @nombre VARCHAR(50),
+    @descripcion VARCHAR(255),
+    @vigencia_min NUMERIC(3,0),
+    @monto_min NUMERIC(10,2),
+    @edad_max NUMERIC(2,0)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        DECLARE @NuevoSeguroID BIGINT;
+		--insertamos en unidad padre
+        INSERT INTO SEGURO.SEGURO (tipo_seguro, nombre, descripcion, vigencia_min, monto_asegurado_min)
+        VALUES ('V', @nombre, @descripcion, @vigencia_min, @monto_min);
+
+        SET @NuevoSeguroID = SCOPE_IDENTITY();
+		--insertamoos en entidad Hija
+        INSERT INTO SEGURO.SEGURO_VIDA (clave_seguro, edad_max)
+        VALUES (@NuevoSeguroID, @edad_max);
+
+        COMMIT TRANSACTION;
+        PRINT 'Seguro de vida registrado,clave: ' + CAST(@NuevoSeguroID AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'Error: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+--REGISTRAR UN SEGURO DE AUTO
+CREATE OR ALTER PROCEDURE pa_RegistrarSeguroAuto
+    @nombre VARCHAR(50),
+    @descripcion VARCHAR(255),
+    @vigencia_min NUMERIC(3,0),
+    @monto_min NUMERIC(10,2),
+    @cobertura_basica VARCHAR(100) -- Específico de Auto
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        DECLARE @NuevoSeguroID BIGINT;
+
+
+        INSERT INTO SEGURO.SEGURO (tipo_seguro, nombre, descripcion, vigencia_min, monto_asegurado_min)
+        VALUES ('A', @nombre, @descripcion, @vigencia_min, @monto_min);
+
+        SET @NuevoSeguroID = SCOPE_IDENTITY();
+
+        INSERT INTO SEGURO.SEGURO_AUTO (clave_seguro, cobert_basica)
+        VALUES (@NuevoSeguroID, @cobertura_basica);
+
+        COMMIT TRANSACTION;
+        PRINT 'Seguro de auto registrado, clave: ' + CAST(@NuevoSeguroID AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'Error: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+--REGISTRAR UN SEGURO DE RETIRO
+CREATE OR ALTER PROCEDURE pa_RegistrarSeguroRetiro
+    @nombre VARCHAR(50),
+    @descripcion VARCHAR(255),
+    @vigencia_min NUMERIC(3,0),
+    @monto_min NUMERIC(10,2),
+    @edad_retiro NUMERIC(2,0),          
+    @aportacion_mensual NUMERIC(10,2)   
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        DECLARE @NuevoSeguroID BIGINT;
+
+  
+        INSERT INTO SEGURO.SEGURO (tipo_seguro, nombre, descripcion, vigencia_min, monto_asegurado_min)
+        VALUES ('R', @nombre, @descripcion, @vigencia_min, @monto_min);
+
+        SET @NuevoSeguroID = SCOPE_IDENTITY();
+
+        INSERT INTO SEGURO.SEGURO_RETIRO (clave_seguro, edad_retiro, aportacion_mensual_min)
+        VALUES (@NuevoSeguroID, @edad_retiro, @aportacion_mensual);
+
+        COMMIT TRANSACTION;
+        PRINT 'Seguro de retiro registrado, clave: ' + CAST(@NuevoSeguroID AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'Error: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+
+--REGISTRAR UN SINIESTRO
+
+CREATE OR ALTER PROCEDURE pa_RegistrarSiniestro
+    @num_siniestro NUMERIC(3,0),
+    @num_poliza BIGINT,
+    @num_empleado_ajustador BIGINT,
+    @lugar VARCHAR(100),
+    @causa VARCHAR(100),
+    @fecha_hora DATETIME,
+    @monto_indemnizacion NUMERIC(15,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        --validaciones y usamos RAISERROR para saltar al CATCH si fallan
+        IF NOT EXISTS (SELECT 1 FROM VENTAS.POLIZA WHERE num_poliza = @num_poliza)
+        BEGIN
+            RAISERROR('La poliza especificada no existe', 16, 1);
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM TRABAJADOR.AJUSTADOR WHERE num_empleado = @num_empleado_ajustador)
+        BEGIN
+            RAISERROR('El empleado no es un Ajustador valido', 16, 1);
+        END
+
+        BEGIN TRANSACTION;
+
+        INSERT INTO SEGURO.SINIESTRO (
+            num_siniestro, num_poliza, num_empleado, 
+            lugar, causa, fecha_hora, monto_indemnizacion
+        )
+        VALUES (
+            @num_siniestro, @num_poliza, @num_empleado_ajustador,
+            @lugar, @causa, @fecha_hora, @monto_indemnizacion
+        );
+
+        COMMIT TRANSACTION;
+        PRINT 'Siniestro registrado correctamente';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        PRINT 'Error al registrar Siniestro: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+--PRUEBAS DE EJECUCION
+
+--Probar registro de Seguro de Auto
+EXEC pa_RegistrarSeguroAuto 
+    @nombre = 'AUTO PREMIUM PLUS', 
+    @descripcion = 'Cobertura total VIP', 
+    @vigencia_min = 12, 
+    @monto_min = 600000, 
+    @cobertura_basica = 'Todo Riesgo';
+
+--Probar registro de Seguro de Vida
+EXEC pa_RegistrarSeguroVida
+    @nombre = 'VIDA ETERNA',
+    @descripcion = 'Seguro vitalicio',
+    @vigencia_min = 60,
+    @monto_min = 2000000,
+    @edad_max = 75;
+
+--Probar registro de Seguro de Retiro
+EXEC pa_RegistrarSeguroRetiro
+    @nombre = 'RETIRO DORADO',
+    @descripcion = 'Plan de pensión privada',
+    @vigencia_min = 120,
+    @monto_min = 3000000,
+    @edad_retiro = 65,
+    @aportacion_mensual = 5000.00;
+
+--Probar registro de Cotización (Usando el Cliente 1 y el Seguro 1 que ya existen)
+EXEC pa_RegistrarCotizacion 
+    @num_cotizacion = 100, 
+    @cliente_id = 1, 
+    @prima_estimada = 15500.50, 
+    @clave_seguro = 1;
+
+--Probar registro de Siniestro (Usando Poliza 3 y Ajustador 11)
+EXEC pa_RegistrarSiniestro 
+    @num_siniestro = 99, 
+    @num_poliza = 3, 
+    @num_empleado_ajustador = 11, 
+    @lugar = 'Av. Insurgentes', 
+    @causa = 'Choque Laminero', 
+    @fecha_hora = '2025-11-28 14:00:00', 
+    @monto_indemnizacion = 3500.00;
